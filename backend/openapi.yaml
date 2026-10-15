@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: IncuBrix Background Music Engine
+  version: 1.0.0
+  description: Local symbolic composition prototype; not a neural music generator.
+servers:
+  - url: http://127.0.0.1:8000
+paths:
+  /health:
+    get:
+      responses:
+        '200': {description: Liveness}
+  /ready:
+    get:
+      responses:
+        '200': {description: Readiness}
+  /api/v1/music/jobs:
+    post:
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MusicRequest'}
+      responses:
+        '202': {description: Generation job accepted}
+        '409': {description: Idempotency key conflict}
+  /api/v1/jobs/{job_id}:
+    get:
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Job state}
+  /api/v1/music/jobs/{job_id}/manifest:
+    get:
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Generation manifest}
+components:
+  schemas:
+    MusicRequest:
+      type: object
+      required: [prompt, duration_s]
+      properties:
+        prompt: {type: string, minLength: 1}
+        duration_s: {type: number, minimum: 5, maximum: 300}
+        tempo_bpm: {type: integer, minimum: 40, maximum: 200, default: 100}
+        key: {type: string, default: C major}
+        sections: {type: array, items: {type: object}}
+        loopable: {type: boolean, default: false}
+        seed: {type: integer, default: 42}

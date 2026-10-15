@@ -1,0 +1,61 @@
+# Phase 0 Repository and Assessment Audit
+
+**Audit date:** 2026-10-15 (Asia/Kolkata)  
+**Project:** `F:\incubrix\Main\version 1`  
+**Scope:** Read-only review of backend, frontend, tests, generated WAVs, reports, licensing records, Docker/OpenAPI files, Git state, and the running local API. No backend or frontend implementation changes were made during this audit.
+
+## Executive review
+
+The current project is a runnable local demo, not a submission-ready implementation of the full assessment. The API test suite and frontend build pass, and saved WAVs exist. Those facts do not establish musical prompt matching, production-quality instrument stems, audio mastering, or the unimplemented narration/section/loop requirements.
+
+The main acceptance blocker is the renderer: it generates simple oscillator/percussion parts, ignores the prompt, requested key, seed and sections, and does not measure integrated loudness or true peak. A separate high-impact performance defect is the tail fade loop, which applies a progressively changing gain to overlapping suffixes for 48,000 iterations per stem. The current backend also returns 404 for the frontend's nested stem URLs.
+
+No major implementation or provider changes have been started. Review this audit before selecting a licensed rendering/provider route or changing the audio architecture.
+
+## Traceability table
+
+Status definitions: **PASS** means the stated scope has direct evidence; **PARTIAL** means some behavior exists but the acceptance gate is not proven; **FAIL** means current behavior contradicts the criterion; **NOT TESTED** means there is not enough evidence to decide.
+
+| Criterion | Current status | Evidence | Gap | Next action after audit review |
+|---|---|---|---|---|
+| Exact duration and musical ending | **PARTIAL** | Eleven saved jobs contain 44 WAVs total (mix plus three stems per job). `ffprobe` reports 48 kHz mono WAVs and durations matching the requests for the observed 5 s and 30 s jobs. Source uses `round(duration_s * RATE)`. | No test matrix for 6, 10, 45, 60, 180 or 300 s. Fade loop at `backend/app/services/pipeline.py:39-42` repeatedly changes overlapping suffixes; the result is not a verified musically aligned ending. Maximum-duration memory/runtime is untested. | First replace the tail operation with one tested envelope application; test all required durations, sample counts, boundaries and representative endings. |
+| Three genuine instrument stems | **PARTIAL** | `pipeline.py` synthesizes separate `drums`, `bass` and `harmony` arrays and writes distinct files. Manifests record gains. Existing report fields range from max reconstruction error `2.7467e-5` to `2.8077e-5`, and RMS error `8.7672e-6` to `9.5667e-6`. | These are oscillator/percussion demonstrations, not verified instrument timbres. No listening or prompt-match review was performed. The only integration test checks files and duration; it does not assert reconstruction against decoded WAV files. The frontend stem URLs include `stems/` but the API `file_name` route does not accept slashes; a live request for a stem returned 404. | Fix and test nested-file retrieval safely; validate decoded WAVs and reconstruction; then choose a musically credible, rights-cleared renderer or stem-capable provider. |
+| Instrumental-only output | **PASS (current local backend only)** | The selected renderer synthesizes oscillator tones and percussive pulses; it has no vocal or speech source. Provider code is not used. | This does not prove future hosted providers are instrumental-only. No separate listening review was recorded. | Keep the local no-vocal guarantee explicit; require a provider-specific guarantee or disclose uncertainty if a hosted provider is added. |
+| Commercial-use rights | **PARTIAL** | `backend/SOURCES.md` lists several direct dependency license links and says no model, soundfont or sample is bundled. | The repository has no chosen project license. The source inventory omits several installed/transitive dependencies and does not contain a verified lock/license inventory. Current oscillator code rights are explicitly unresolved. FFmpeg is not used in the generation path. | Choose a project license and audit all direct/transitive dependencies and any proposed renderer, soundfont, samples or provider before adopting them. |
+| Audio quality: -16 LUFS and <= -1 dBTP | **FAIL** | Every inspected manifest has `measured_loudness_lufs` and `true_peak_dbtp` unset; reports say `quality_status: not_measured`. The pipeline computes a sample peak only. | No integrated LUFS meter, true-peak meter, normalization, clipping/click/gap checks or listening test. `_run` marks the job succeeded after generation regardless of these unmeasured gates. | Implement trusted measurement/mastering and make success conditional on passing objective audio checks. |
+| Prompt, key, seed and section behavior | **FAIL** | `MusicRequest` accepts these fields; `pipeline.py` uses tempo/duration, but hard-codes a C-major progression and only copies prompt, seed, key request and sections to metadata. | The generated waveform does not respond to prompt, key, seed or sections. A code comment says section shifts affect harmonic color, but there is no section-driven arrangement logic. Frontend selections can therefore disagree with the generated audio. | Add a documented composition plan and verify audible/structural changes for prompt dimensions, requested key/seed and beat-aligned sections. |
+| Narration ducking | **FAIL** | Schema has an unused `narration_path`; no upload/URL field or ducking pipeline exists. | No safe media intake, speech detection, 8-15 dB ducking, release curve, no-speech handling, `mix_ducked.wav` or tests. | Add a bounded narration input path and VAD/gain-envelope pipeline with silence/no-speech fixtures and output checks. |
+| Looping | **FAIL** | `loopable` is accepted. Validation report explicitly records `not_claimed`. | No boundary discontinuity, bar alignment, rhythm check or listening evidence. | Implement loop construction and boundary checks; report pass/fail without claiming seamlessness when it fails. |
+| API, jobs and idempotency | **PARTIAL** | FastAPI exposes create, status, manifest, health and readiness routes. `pytest -q` currently reports 7 passed, including API lifecycle and sequential idempotency checks. `/ready` returned `ready` during audit. | Jobs and idempotency records are process-local dictionaries; restart loses state. Errors are not consistently the required top-level JSON shape. Structured logs are JSON-shaped strings rather than structured fields and omit a reliable correlation ID. No concurrency or recovery test. Manifest path lookup is not confined with a resolved-path check. | Add durable state if required, consistent errors/log context, safe manifest path resolution, and concurrency/restart/failure tests. |
+| Download and frontend integration | **PARTIAL** | React build passes; Vite proxies API requests; a previous localhost smoke test submitted a job and retrieved its manifest. Mix download returned 200 during this audit. | Nested stem download/playback request returned 404 due to route shape. Static `openapi.yaml` omits file download routes and does not fully describe the runtime schemas. No browser-level interaction test. | Repair the stem route and align the OpenAPI document; add a browser or full HTTP flow covering mix, stems and downloads. |
+| OpenAPI 3.1 contract | **PARTIAL** | FastAPI is configured for OpenAPI 3.1; `backend/openapi.yaml` declares 3.1.0. | The checked-in YAML omits file routes and several request/response properties and is not a faithful copy of runtime OpenAPI. | Generate or test the checked-in spec against the actual app contract. |
+| External AI provider / mock adapter | **NOT IMPLEMENTED** | `backend/app/providers/base.py` defines interfaces, but `ExternalProvider.generate` and `MockProvider.generate` raise; neither is wired into job processing. | There is no provider adapter, provider contract test, or actual AI backend. `.env.example` provider settings are unused. | Select a provider only after checking official docs, commercial terms, stem guarantees and price; implement an adapter without automatic paid calls. |
+| Batch and hard-case evidence | **FAIL** | A sample JSON list and a basic batch submission script exist. | The batch script records submit responses without polling completion or saving audio/validation reports. Most listed hard cases have no automated tests; sample requests are not evidence they were executed. | Build a batch runner that polls, collects artifacts/measurements and records failures; add and run the hard-case suite. |
+| Docker and persistent services | **PARTIAL** | Dockerfile and Compose service exist for the API and local volume. | Compose does not run the React frontend, database, durable worker/queue or MinIO. Jobs remain in memory. Compose end-to-end behavior was not tested in this audit. | Decide against the assessment's actual deployment requirement, then add only the needed persistent services and verify a clean Compose run. |
+| Git traceability | **FAIL** | `git rev-parse` found no repository at `F:\incubrix`, `F:\incubrix\Main` or `F:\incubrix\Main\version 1`; no status or commit history is available. | No meaningful Git history, clean-tree evidence, or commit-based review trace. | After review, initialize/use the intended repository and establish a baseline commit; keep generated WAVs, caches, environments and secrets out of version control. |
+
+## Verification performed
+
+| Check | Actual result | Scope limit |
+|---|---|---|
+| Backend tests: `& '.\incubrix_env\Scripts\python.exe' -m pytest -q` | **7 passed, 0 failed, 1 Starlette deprecation warning, 22.16 s** | Only current unit, one 5 s pipeline artifact case, and two API cases; not the full assessment matrix. |
+| Frontend build: `npm run build` | **Passed**, Vite 6.3.5, 29 modules transformed, 741 ms | Build success does not verify all browser interactions. |
+| Existing generated files | **11 jobs / 44 WAVs**, observed request durations 5 s and 30 s; all were 48 kHz mono and matched their requested durations under `ffprobe` | Generated files are demonstrations, not duration-suite or subjective-quality coverage. |
+| Existing reconstruction report values | Max absolute error `2.7467e-5`–`2.8077e-5`; RMS `8.7672e-6`–`9.5667e-6` | Values are computed from quantized in-memory arrays; tests do not decode saved stems/mix and independently reconstruct them. |
+| Loudness / true peak | Unknown in all 11 manifests | No measurement was performed; no pass can be claimed. |
+| API stem file route | Mix request **200**; `/files/stems/drums.wav` **404** | Direct live API check using an existing generated job. |
+| Git | No `.git` repository found at the inspected project ancestors | There is no current commit history to review. |
+
+## Highest-risk blocker and proposed sequence
+
+The oscillator renderer cannot presently establish the assessment's “genuine, musically meaningful stems” or prompt-match requirements. The fast fade fix and stem URL route are bounded repairs, but they do not address that acceptance gate. A viable route is either (a) a locally rendered symbolic/MIDI composition using a separately verified commercial-use instrument source, or (b) a stem-capable music provider selected only after its official API, licensing, stem guarantees and costs are reviewed. No model, soundfont, paid provider or large download was selected during Phase 0.
+
+Recommended order after this audit is reviewed:
+
+1. Repair the suffix-fade performance/shape defect and the nested stem route; add focused regression tests.
+2. Select and document the rights-cleared instrument/rendering approach before spending time on larger composition changes.
+3. Establish decoded-file stem reconstruction and duration tests across 5, 6, 10, 30, 45, 60, 180 and 300 seconds.
+4. Add true LUFS/true-peak mastering and validation-gated job success.
+5. Implement and test section behavior, narration ducking and loop checks; then complete persistence, hard cases, batch evidence and deployment integration.
+
+This audit is the Phase 0 deliverable. No major architecture/provider change has been made pending review.

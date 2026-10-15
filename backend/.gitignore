@@ -1,0 +1,10 @@
+incubrix_env/
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+data/outputs/*
+data/temp/*
+data/inputs/*
+logs/
+*.pyc

@@ -1,0 +1,8 @@
+services:
+  api:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      MUSIC_DATA_DIR: /srv/data
+      MUSIC_BACKEND: symbolic
+    volumes: ["./data:/srv/data"]

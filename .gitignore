@@ -1,0 +1,15 @@
+﻿**/incubrix_env/
+**/.venv/
+**/node_modules/
+**/dist/
+**/.vite/
+**/__pycache__/
+**/.pytest_cache/
+**/data/outputs/**
+**/data/temp/**
+**/data/inputs/**
+**/.env
+**/.env.*
+!**/.env.example
+*.pyc
+*.log

@@ -1,0 +1,11 @@
+[
+  {"prompt":"A gentle instrumental bed", "duration_s":5},
+  {"prompt":"An uplifting instrumental bed", "duration_s":6},
+  {"prompt":"A long calm instrumental bed", "duration_s":300},
+  {"prompt":"", "duration_s":30},
+  {"prompt":"calm but aggressive instrumental music", "duration_s":30},
+  {"prompt":"instrumental music inspired by a named song or artist", "duration_s":20},
+  {"prompt":"singing vocals", "duration_s":20},
+  {"prompt":"non-English instrumental background", "duration_s":20, "sections":[{"start_s":3,"mood":"soft"},{"start_s":4,"mood":"bright"}]},
+  {"prompt":"loopable background", "duration_s":10, "loopable":true}
+]
